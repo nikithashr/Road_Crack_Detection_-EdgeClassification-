@@ -1,5 +1,6 @@
 #!/bin/bash
-
+mkdir p_classified_images
+mv classified_images p_classified_images
 echo "enter the cracked image directory"
 read cracked_images
 
@@ -45,6 +46,7 @@ mv image_classify.png classified_images/classified"$iter".png
 #fi
     let num_files=num_files-2
 done
+
 #if [$test -eq 0]
 #then
 #./libsvm-3.20/svm-train -s 0 -t 1 -d 5 -g 3 -r 1  features.txt featureModel.txt

@@ -22,8 +22,8 @@ Point eight_neighbors[] = {Point(-1,0),
 BagOfWordsSlic::BagOfWordsSlic(int histogram_distance_weight, int area_threshold, int tightness)
 :kMaxIter(10),
 kMinSuperpixelAreaThreshold(area_threshold),
-kHistogramDistanceWeight(histogram_distance_weight),
-kCentroidErrorThreshold(4){
+kCentroidErrorThreshold(4),
+kHistogramDistanceWeight(histogram_distance_weight){
     m_ = tightness;
 }
 
@@ -40,7 +40,7 @@ void BagOfWordsSlic::RenumberEachConnectedComponent(){
     image_oversegmentation_->ResetSegmentation();
 
     int* old_labels_ptr;
-//    int* new_labels_ptr;
+    int* new_labels_ptr;
 
     for(int i = 0; i < im_height_; ++i){
         old_labels_ptr = old_labels_mat.ptr<int>(i);
@@ -201,7 +201,7 @@ void BagOfWordsSlic::MoveCentroidsToLocalGradientMinima(){
     float min_magnitude;
     Point adjusted_centroid, neighboring_point;
 
-    for(int i = 0; i < (int)cluster_centroids_.size(); ++i){
+    for(int i = 0; i < cluster_centroids_.size(); ++i){
         min_magnitude = FLT_MAX;
         x_ind = min(max((int)cluster_centroids_[i].pt_.x,1),im_width_-2);
         y_ind = min(max((int)cluster_centroids_[i].pt_.y,1),im_height_-2);
@@ -254,7 +254,7 @@ void BagOfWordsSlic::UpdateClusterCentroids(Mat lab_image){
 }
 
 
-void BagOfWordsSlic::GenerateSuperpixels(int label_svm, InputArray _input_image, OutputArray _superpixels,
+void BagOfWordsSlic::GenerateSuperpixels(Mat _edges, InputArray _input_image, OutputArray _superpixels,
     int _number_of_superpixels, InputArray _visual_word_map, 
     InputArray _mask, OutputArray _superpixel_centroids){
 
@@ -284,7 +284,7 @@ void BagOfWordsSlic::GenerateSuperpixels(int label_svm, InputArray _input_image,
     
     int index_cluster = 0;
 
-    for(int i = 0; i < (int)cluster_centroids_.size(); ++i){
+    for(int i = 0; i < cluster_centroids_.size(); ++i){
         int offset = 0;
         if (((i-1)/grid_width)%2 == 0)
             offset = S_/4;
@@ -310,7 +310,7 @@ void BagOfWordsSlic::GenerateSuperpixels(int label_svm, InputArray _input_image,
     // Find local minimum of gradient magnitude and adjust centroid locations
     MoveCentroidsToLocalGradientMinima();
 
-    for(int i = 0; i < (int)cluster_centroids_.size(); ++i)
+    for(int i = 0; i < cluster_centroids_.size(); ++i)
         image_oversegmentation_->AddNewSegmentAt(cluster_centroids_[i].pt_);
 
     if (visual_word_map.empty()){
@@ -323,7 +323,7 @@ void BagOfWordsSlic::GenerateSuperpixels(int label_svm, InputArray _input_image,
     /*---Generate descriptors at centroid locations---*/
 
     // Get L,A,B vector for each centroid
-    for(int i = 0; i < (int)cluster_centroids_.size();++i){
+    for(int i = 0; i < cluster_centroids_.size();++i){
         cluster_centroids_[i].lab_color_  = lab_image.at<Vec3b>(image_oversegmentation_->SegmentCentroid(i));
         cluster_centroids_[i].visual_word_histogram_ = visual_word_histogram_matrix_.at<Vec50d>(image_oversegmentation_->SegmentCentroid(i));
     }
@@ -362,7 +362,7 @@ void BagOfWordsSlic::GenerateSuperpixels(int label_svm, InputArray _input_image,
                 visual_word_histogram_row = visual_word_histogram_matrix_.ptr<Vec50d>(pixel_y);
                 superpixel_label_matrix_row = image_oversegmentation_->pixel_labels_.ptr<int>(pixel_y);
 
-//                int temp_x = x_lower_limit;
+                int temp_x = x_lower_limit;
                 for(int pixel_x = x_lower_limit; pixel_x < x_upper_limit; ++pixel_x){
 
                     if (mask.at<uchar>(pixel_y, pixel_x) != 1)
@@ -398,7 +398,7 @@ void BagOfWordsSlic::GenerateSuperpixels(int label_svm, InputArray _input_image,
         }
 
         int num_discarded = 0;
-        for(int i = 0; i < (int)discard_list.size(); ++i)
+        for(int i = 0; i < discard_list.size(); ++i)
             if(discard_list[i])
                 ++num_discarded;
 
@@ -418,11 +418,11 @@ void BagOfWordsSlic::GenerateSuperpixels(int label_svm, InputArray _input_image,
             max_centroid_displacement = std::max(max_centroid_displacement,y_difference);
         }
 
-//        cout << "max distance:  " << max_centroid_displacement << "\n";
+        cout << "max distance:  " << max_centroid_displacement << "\n";
         if (max_centroid_displacement <= kCentroidErrorThreshold){
             RenumberEachConnectedComponent();
             RelabelSmallSegmentsToNearestNeighbor(kMinSuperpixelAreaThreshold);
-//            cout << "Number of segments now:   " << image_oversegmentation_->NumberOfSegments() << "\n";
+            cout << "Number of segments now:   " << image_oversegmentation_->NumberOfSegments() << "\n";
 
             break;
         }
@@ -434,26 +434,23 @@ void BagOfWordsSlic::GenerateSuperpixels(int label_svm, InputArray _input_image,
     vector<Point> centroids = image_oversegmentation_->GetCentroids();
     _superpixel_centroids.create(centroids.size(), 2, CV_32S);
     Mat superpixel_centroids = _superpixel_centroids.getMat();
-    cout << "where3" << endl;
 
-    for (int i = 0; i < (int)centroids.size(); ++i){
+    for (int i = 0; i < centroids.size(); ++i){
         superpixel_centroids.at<int>(i,0) = centroids[i].x;
         superpixel_centroids.at<int>(i,1) = centroids[i].y;
     }
     _input_image.copyTo(image_oversegmentation_->_original_image);
     visual_word_map.copyTo(image_oversegmentation_->Texton_image);
-    image_oversegmentation_->label_svm = label_svm;
+    _edges.copyTo(image_oversegmentation_->_edges);
     image_oversegmentation_->ListPixelsForEachSegment();
-    cout << "where2" << endl;
-//    image_oversegmentation_->ComputeSegmentFeatures(src, visual_word_map, label_svm);
-    //cout << "where3" << endl;
+//    Mat src = _input_image.getMat();
+    //cout << "where2" << endl;
+//    image_oversegmentation_->ComputeSegmentFeatures(src, visual_word_map, _edges);
+    image_oversegmentation_->ShowClassifiedLabelImage(mask);
+
+    cout << "where3" << endl;
 //    cout << "total num superpixels: " << centroids.size() << endl;
 //    _number_of_superpixels_total = centroids.size();
-//    cout << "total num superpixels: " << centroids.size() << endl;
-//
-//    image_oversegmentation_->DeleteOversegmentation();
-//    cout << "total num superpixels2: " << centroids.size() << endl;
-
     return;
     /*---Clean up image_oversegmentation_->pixel_labels_---*/
 
@@ -754,7 +751,7 @@ void *computeTexton(void *ptr) {
                 a.at<float>(j,0) = points[i*c + c_iter].Filters[j];
             }
             int TextonLabel = 0;
-            for (int j = 0; j < (int)dict_local.size(); j++) {
+            for (int j = 0; j < dict_local.size(); j++) {
                 for (int l = 0; l < n; l++) {
                     b.at<float>(l,0) = dict_local[j].Filters[l];
                 }
@@ -774,12 +771,12 @@ void *computeTexton(void *ptr) {
 
 /* ----- Generate Texton Map for a given Image ----- */
 void Textons::generateTextonMap(Mat TextonMapLocal) {//, Mat TextonMap) {
-//    int width = test_image.cols;
-//    int height = test_image.rows;
+    int width = test_image.cols;
+    int height = test_image.rows;
     TextonMap.create(1,1,CV_8UC3);
     
     
-//    int numThreads = TextonMapLocal.rows*TextonMapLocal.cols;
+    int numThreads = TextonMapLocal.rows*TextonMapLocal.cols;
     pthread_t threads[NUM_THREADS];
     thread_args_t thread_args[NUM_THREADS];
     
@@ -815,9 +812,9 @@ void Textons::generateTextonMap(Mat TextonMapLocal) {//, Mat TextonMap) {
                 colors[i][1] = variant[q];
                 colors[i][2] = variant[r];
                 
-//                int temp1 = colors[i][0];
-//                int temp2 = colors[i][1];
-//                int temp3 = colors[i][2];
+                int temp1 = colors[i][0];
+                int temp2 = colors[i][1];
+                int temp3 = colors[i][2];
                 // cout << colors[i][0] << " " << colors[i][1] << " " << colors[i][2] << endl;
                 i++;
                 
@@ -838,8 +835,8 @@ void Textons::generateTextonMap(Mat TextonMapLocal) {//, Mat TextonMap) {
         }
     }
 //    imshow("textonMapColor", TextonMapColors);
-    imwrite("output_texton.png", TextonMapColors);
-    imwrite("texton_bw.png", TextonMapLocal);
+//    imwrite("output_texton.png", TextonMapColors);
+//    imwrite("texton_bw.png", TextonMapLocal);
 //    imwrite("TextonMap.png", TextonMapLocal);
 //    waitKey();
     /*    imshow("textonMap", TextonMapLocal);

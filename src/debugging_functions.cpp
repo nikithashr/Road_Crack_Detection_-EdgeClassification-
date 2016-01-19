@@ -6,7 +6,7 @@ void displaySuperpixelBoundaries(InputArray _image, InputArray _superpixels){
     Mat displayImg = image.clone();
     Vec3b* pDispImg;
     int* pLabelAbove;
-//    int* pLabelBelow;
+    int* pLabelBelow;
     int* pLabelThis;
     for(int i = 1; i < labels.rows; ++i){
         pLabelAbove = labels.ptr<int>(i-1);
@@ -23,7 +23,7 @@ void displaySuperpixelBoundaries(InputArray _image, InputArray _superpixels){
 //    waitKey(0);
 //    destroyWindow("imgOverSeg->pixelLabels");
 }
-void DisplaySuperpixelSVMColorized(InputArray _image, InputArray _superpixels, string s, int num_superpixels_total){
+void DisplaySuperpixelSVMColorized( InputArray _image, InputArray _superpixels, string s, int num_superpixels_total){
     Mat image = _image.getMat();
     Mat labels = _superpixels.getMat();
 
@@ -60,7 +60,7 @@ void DisplaySuperpixelSVMColorized(InputArray _image, InputArray _superpixels, s
     //cout << svmLabels << endl;
     Vec3b* pDispImg;
     int* pLabelAbove;
-//    int* pLabelBelow;
+    int* pLabelBelow;
     int* pLabelThis;
     for(int i = 1; i < labels.rows; ++i){
         pLabelAbove = labels.ptr<int>(i-1);
@@ -94,7 +94,7 @@ void DisplaySuperpixelSVMColorized(InputArray _image, InputArray _superpixels, s
 //    index++;
 //    imshow("superpixels_colored", displayImg);
 //    waitKey();
-    imwrite("output_svm.png", displayImg);
+//    imwrite("output_svm.png", displayImg);
     return;
 }
 void DisplaySuperpixelsColorized(InputArray _superpixels, const string& window_name){
@@ -155,7 +155,7 @@ void DisplaySuperpixelsColorized(InputArray _superpixels, const string& window_n
     Mat display_image(labels.size(), CV_8UC3);
     Vec3b* display_image_ptr;
     int* label_above_ptr;
-//    int* label_below_ptr;
+    int* label_below_ptr;
     int* label_this_ptr;
     for(int i = 1; i < labels.rows; ++i){
         label_above_ptr = labels.ptr<int>(i-1);
@@ -170,7 +170,7 @@ void DisplaySuperpixelsColorized(InputArray _superpixels, const string& window_n
         }
     }
     namedWindow(window_name);
-    imshow(window_name,display_image);
+//    imshow(window_name,display_image);
 //    imwrite(window_name + ".png", display_image);
 }
 

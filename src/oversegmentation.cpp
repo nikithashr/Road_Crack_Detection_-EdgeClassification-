@@ -1,7 +1,6 @@
 //
 // Version 0: Srivatsan Varadhrajan
 // Version 1: Vinay Palakkode
-// git
 //
 //
 //
@@ -35,8 +34,9 @@ void ImageSegment::CalculateHistogram(Mat HSV_image) {
     // hue range: 0-179, saturation: 0-255, value: 0-255
     int RangeH = 180;
     int RangeS = 256;
+
     
-    for (int i = 0; i < (int)pixel_list_.size(); i++) {
+    for (int i = 0; i < pixel_list_.size(); i++) {
         Vec3b intensity = HSV_image.at<Vec3b>(pixel_list_[i].y, pixel_list_[i].x);
         int indexH = RangeH/binsH;
         indexH = (int)intensity.val[0]/indexH;
@@ -45,7 +45,6 @@ void ImageSegment::CalculateHistogram(Mat HSV_image) {
         HHistogram[indexH]++;
         SHistogram[indexS]++;
     }
-    
     for (int j = 0; j < binsH; j++) {
         HHistogram[j] = HHistogram[j]/pixel_list_.size();
     }
@@ -60,12 +59,12 @@ void ImageSegment::CalculateHistogram(Mat HSV_image) {
 }
 void ImageSegment::CalculateTextonHistogram(Mat Texton_image) {
     
-//    int RangeTextons = 50;
-//    int binsTextons = 50;
+    int RangeTextons = 50;
+    int binsTextons = 50;
     for (int i = 0; i < NUMTEXTONS; i++) {
         THistogram[i] = 0;
     }
-    for (int i = 0; i < (int)pixel_list_.size(); i++) {
+    for (int i = 0; i < pixel_list_.size(); i++) {
         int index = (int)Texton_image.at<uchar>(pixel_list_[i].y, pixel_list_[i].x);
         THistogram[index]++;
     }
@@ -80,13 +79,33 @@ void ImageSegment::CalculateTextonHistogram(Mat Texton_image) {
     return;
     
 }
+void ImageSegment::ComputeLabel() {
+    float sumBlack = 0;
+//    float sumWhite = 0;
+    
+    for( int i = 0; i < pixel_list_.size(); i++) {
+        int value = (int)_edges.at<uchar>(pixel_list_[i].y, pixel_list_[i].x);
+        if (value == 0)
+            sumBlack++;
+//        else
+//            sumWhite++;
+    }
+//    sumWhite /= pixel_list_.size();
+    sumBlack /= pixel_list_.size();
+    
+    if (sumBlack < 0.92)
+        crack_label = 1;
+    else
+        crack_label = -1;
+
+}
 void ImageSegment::ComputeFeatures() {
     
     /*------- mean RGB ---------*/
     float sumR = 0;
     float sumB = 0;
     float sumG = 0;
-    for (int i = 0; i < (int)pixel_list_.size(); i++) {
+    for (int i = 0; i < pixel_list_.size(); i++) {
         Vec3b intensity = _original_image.at<Vec3b>(pixel_list_[i].y, pixel_list_[i].x);
         sumB += (int)intensity.val[0];
         sumG += (int)intensity.val[1];
@@ -136,12 +155,13 @@ void ImageSegment::ComputeFeatures() {
     
 }
 
-//void ImageSegment::WriteFeaturesToFile(int label_svm) {
 void ImageSegment::WriteFeaturesToFile() {
     //cout << "where1" << endl;
     ofstream features;
     features.open("features.txt", ios::app);
     
+    int label_svm = crack_label;
+
     features << label_svm << " ";
     int feature_count = 1;
 //    //features << "MeanBGR: " << endl;
@@ -193,13 +213,10 @@ Oversegmentation::Oversegmentation(InputArray _original_image){
 }
 
 Oversegmentation::~Oversegmentation(){
-//    cout << "right here" << segments_.size() << endl;
-    int max_size = (int)segments_.size();
-    for (int i = 0; i < max_size;++i){
-        
+    // cout << segments_.size();
+    for (int i = 0; i < segments_.size();++i){
         delete segments_[i];
     }
-////    cout << "right now" << segments_.size() << endl;
 }
 
 bool Oversegmentation::IsNotSet(Point pt){
@@ -207,7 +224,7 @@ bool Oversegmentation::IsNotSet(Point pt){
 }
 
 void Oversegmentation::ResetSegmentation(){
-    for (int i = 0; i < (int)segments_.size();++i)
+    for (int i = 0; i < segments_.size();++i)
         delete segments_[i];
     segments_.clear();
     pixel_labels_.setTo(-1);
@@ -252,7 +269,7 @@ vector<Point> Oversegmentation::ComputeSegmentCentroids(){
         }
     }
 
-    for (int i = 0; i < (int)segments_.size(); ++i) {
+    for (int i = 0; i < segments_.size(); ++i) {
         mean_centroids[i] *= 1.0/segments_[i]->area_;
         segments_[i]->centroid_ = mean_centroids[i];
     }
@@ -273,7 +290,7 @@ vector<int> Oversegmentation::ComputeSegmentAreas(){
                 segment_areas[ptr_pix_labels[j]]++;
     }
 
-    for (int i = 0; i < (int)segments_.size(); ++i) {
+    for (int i = 0; i < segments_.size(); ++i) {
         segments_[i]->area_ = segment_areas[i];
     }
 
@@ -281,22 +298,16 @@ vector<int> Oversegmentation::ComputeSegmentAreas(){
 }
 
 /*----------- Compute Segment Features ------------*/
-void Oversegmentation::ComputeSegmentFeatures(Mat _original_image, Mat Texton_image, int label_svm){
-    for (int i = 0; i < (int)segments_.size(); i++) {
-//        cout << "size       " << segments_.size() << ", i       " << i << endl;
+void Oversegmentation::ComputeSegmentFeatures(){
+    for (int i = 0; i < segments_.size(); i++) {
         _original_image.copyTo(segments_[i]->_original_image);
         Texton_image.copyTo(segments_[i]->Texton_image);
-        segments_[i]->label_svm = label_svm;
+        _edges.copyTo(segments_[i]->_edges);
         segments_[i]->ComputeFeatures();
-//        segments_[i]->ComputeFeatures(_original_image, Texton_image);
-//        cout << "i:      " << i << endl;
-
+        segments_[i]->ComputeLabel();
         segments_[i]->WriteFeaturesToFile();
-//        segments_[i]->WriteFeaturesToFile(label_svm);
-//        cout << "i*:      " << i << endl;
 
     }
-    cout << "wtf " << endl;
     return;
 }
 
@@ -304,7 +315,7 @@ void Oversegmentation::ComputeSegmentFeatures(Mat _original_image, Mat Texton_im
 vector<Point> Oversegmentation::GetCentroids(){
     vector<Point> vector_of_centroids;
 
-    for (int i = 0; i < (int)segments_.size(); ++i)
+    for (int i = 0; i < segments_.size(); ++i)
         vector_of_centroids.push_back(segments_[i]->centroid_); 
 
     return vector_of_centroids;
@@ -324,7 +335,7 @@ Point2f Oversegmentation::SegmentCentroid_f(int i){
 /*-----------  Get Pixel Areas - returns vector of areas -----------*/
 vector<int> Oversegmentation::GetAreasOfAllSegments(){
     vector<int> pixel_areas;
-    for(int i=0; i < (int)segments_.size(); ++i) pixel_areas.push_back(segments_[i]->area_);
+    for(int i=0; i < segments_.size(); ++i) pixel_areas.push_back(segments_[i]->area_);
     return pixel_areas;
 }
 
@@ -340,7 +351,7 @@ vector<int> Oversegmentation::DeleteSegments(vector<bool> discard_list){
     vector<int> new_indices(segments_.size(),0);
     vector<ImageSegment*> new_segments;
     
-    for (int i = 0; i < (int)discard_list.size(); ++i){
+    for (int i = 0; i < discard_list.size(); ++i){
         if(discard_list[i]){
             new_indices[i] = -1;
             delete segments_[i];
@@ -366,7 +377,7 @@ vector<int> Oversegmentation::DeleteSegments(vector<bool> discard_list){
 // Creates explicit list of points in each segment
 
 void Oversegmentation::ListPixelsForEachSegment(){
-    for(int i = 0; i < (int)segments_.size(); ++i){
+    for(int i = 0; i < segments_.size(); ++i){
         segments_[i]->area_ = 0;
         segments_[i]->pixel_list_.clear();
         segments_[i]->label_ = i;
@@ -383,7 +394,29 @@ void Oversegmentation::ListPixelsForEachSegment(){
     }
     ComputeSegmentAreas();
     ComputeSegmentCentroids();
-    ComputeSegmentFeatures(_original_image, Texton_image, label_svm);
+    ComputeSegmentFeatures();
+
+}
+/*---------- Visualizing the crack label computed using edge detection ---------*/
+void Oversegmentation::ShowClassifiedLabelImage(Mat mask){
+//    imshow("mask", mask);
+//    waitKey();
+//    cout << mask;
+//    cout << mask.size() <<", " <<  _original_image.size() << endl;
+    int count = 0;
+    for (int i = 0; i < segments_.size(); i++) {
+        if (segments_[i]->crack_label == 1) {
+            for (int j = 0; j < segments_[i]->pixel_list_.size(); j++){
+                if (mask.at<uchar>(segments_[i]->pixel_list_[j].y, segments_[i]->pixel_list_[j].x) == 1) {
+                Vec3b temp = _original_image.at<Vec3b>(segments_[i]->pixel_list_[j].y, segments_[i]->pixel_list_[j].x);
+                _original_image.at<Vec3b>(segments_[i]->pixel_list_[j].y, segments_[i]->pixel_list_[j].x) = Vec3b(temp.val[0], temp.val[1], 2*temp.val[2]);
+                }
+            }
+        }
+    }
+    
+    imwrite("image_classify.png", _original_image);
+    return;
 }
 
 /*---------- Change label of segment ----------*/
@@ -398,7 +431,7 @@ void Oversegmentation::ListPixelsForEachSegment(){
 void Oversegmentation::RelabelSegment(int orig_label, int new_label){
     vector<Point> pixels_to_relabel = segments_[orig_label]->pixel_list_;
 
-    for (int i = 0; i < (int)pixels_to_relabel.size(); ++i)
+    for (int i = 0; i < pixels_to_relabel.size(); ++i)
         AddPixelToSegment(pixels_to_relabel[i], new_label);
 
     segments_[orig_label]->pixel_list_.clear();

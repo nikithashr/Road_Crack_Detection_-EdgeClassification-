@@ -76,7 +76,7 @@ private:
 public:
     BagOfWordsSlic(int histogram_distance_weight, int area_threshold, int tightness);
     ~BagOfWordsSlic();
-    void GenerateSuperpixels(int label_svm, InputArray _input_image, OutputArray _superpixels,
+    void GenerateSuperpixels(Mat _edges, InputArray _input_image, OutputArray _superpixels,
      int _number_of_superpixels, InputArray _visual_word_map = Mat(), InputArray _mask = Mat(), 
      OutputArray _superpixel_centroids = Mat());
     int _number_of_superpixels_total;

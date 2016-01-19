@@ -27,16 +27,17 @@ class ImageSegment{
 public:
     int label_;
     int area_;
+    vector<ImageSegment*> neighbors_;
     Point centroid_;
     vector<Point> pixel_list_;
+    Mat _original_image, Texton_image, _edges;
     float features[FEATURE_SIZE];
     float meanBGR[3];
     float HSVmeanBGR[3];
     float HHistogram[binsH] = {0,0,0,0,0};
     float SHistogram[binsS] = {0,0,0};
     float THistogram[NUMTEXTONS];
-    Mat _original_image, Texton_image;
-    int label_svm;
+    float crack_label;
 
     ImageSegment(int _label);
     ImageSegment(int _label, Point _centroid);
@@ -46,6 +47,7 @@ public:
     void ComputeFeatures();
     void CalculateHistogram(Mat HSV_image);
     void CalculateTextonHistogram(Mat Texton_image);
+    void ComputeLabel();
     void WriteFeaturesToFile();
 
 };
@@ -53,16 +55,14 @@ public:
 class Oversegmentation{
 private:
     int im_height_, im_width_;
+    int count_;
     vector<ImageSegment*> segments_;
-
 public:
+    Mat _edges, _original_image, Texton_image;
     Mat_<int> pixel_labels_;
-    Mat _original_image, Texton_image;
-    int label_svm;
     Oversegmentation(InputArray _original_image);
     Oversegmentation();
     ~Oversegmentation();
-//    DeleteOversegmentation();
     bool IsNotSet(Point pt);
     void ResetSegmentation();
     size_t NumberOfSegments();
@@ -74,11 +74,12 @@ public:
     void AddPixelToSegment(Point pt, int segment_label);
     vector<Point> ComputeSegmentCentroids();
     vector<int> ComputeSegmentAreas();
-    void ComputeSegmentFeatures(Mat _original_image, Mat Texton_image, int label_svm);
+    void ComputeSegmentFeatures();
     Point SegmentCentroid(int i);
     Point2f SegmentCentroid_f(int i);
     vector<int> DeleteSegments(vector<bool> discard_list);
     vector<Point> GetCentroids();
+    void ShowClassifiedLabelImage(Mat mask);
     void PrintSegmentBorders(InputArray _input_image, OutputArray _segment_borders);
     void PrintClusterCentroids(InputArray _input_image, OutputArray _segment_centroids);
     void RecolorWithCentroids(InputArray _input_image, OutputArray _recolored_image);
